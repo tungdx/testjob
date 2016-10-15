@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "838734567392",
+    "firebase_url": "https://testjob-5bc57.firebaseio.com",
+    "project_id": "testjob-5bc57",
+    "storage_bucket": "testjob-5bc57.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:838734567392:android:7794ee8c7a9819f7",
+        "android_client_info": {
+          "package_name": "vn.john.testjob"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "838734567392-7tds3fvf9jdqk38a2rirps123i8gfsu6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBb1ef5BuUpil98dMsSamBkHAOF4z4K6XQ"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

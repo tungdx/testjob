@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">TestJob</string>
+    <string name="ok">OK</string>
+    <string name="sd_required">SD is required</string>
+</resources>
