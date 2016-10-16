@@ -8,4 +8,5 @@
     <string name="record_running">Record is running</string>
     <string name="already_running">Record is already running</string>
     <string name="record_failed">Start record failed</string>
+    <string name="enable_drawover_permisison">Please enable Draw over other apps permission</string>
 </resources>
