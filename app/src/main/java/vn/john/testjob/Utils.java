@@ -49,8 +49,11 @@ public class Utils {
     }
 
     public static boolean hasEnoughPermissions(Context context) {
-        int permission = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA);
-        return permission == PackageManager.PERMISSION_GRANTED;
+        int camera = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA);
+        int write = ContextCompat.checkSelfPermission(context, android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        int read = ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_EXTERNAL_STORAGE);
+        int recordAudio = ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO);
+        return camera == PackageManager.PERMISSION_GRANTED && write == PackageManager.PERMISSION_GRANTED && read == PackageManager.PERMISSION_GRANTED && recordAudio == PackageManager.PERMISSION_GRANTED;
     }
 
     public static boolean hasWifiConnection(Context context) {

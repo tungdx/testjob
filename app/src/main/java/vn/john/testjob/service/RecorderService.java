@@ -1,125 +1,194 @@
 package vn.john.testjob.service;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.PixelFormat;
-import android.hardware.Camera;
-import android.hardware.Camera.Size;
+import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 import java.io.IOException;
-import java.util.List;
 
-public class RecorderService extends Service {
-    private static final String TAG = "RecorderService";
-    //        private SurfaceView mSurfaceView;
-//        private SurfaceHolder mSurfaceHolder;
-    private static Camera mServiceCamera;
-    private boolean mRecordingStatus;
-    private MediaRecorder mMediaRecorder;
+import vn.john.testjob.Config;
+import vn.john.testjob.R;
+import vn.john.testjob.Utils;
 
+public class RecorderService extends Service implements SurfaceHolder.Callback, MediaRecorder.OnInfoListener, MediaRecorder.OnErrorListener {
+    private static final String TAG = RecorderService.class.getSimpleName();
+    /**
+     * It is used to check recording status
+     */
+    public static boolean mRecordingStatus;
+
+    private WindowManager windowManager;
+    private SurfaceView surfaceView;
+    private MediaRecorder mMediaRecorder = null;
+
+    /**
+     * This override method is called when first instance of RecordServices is made and use to create layout for camera video recording.
+     */
     @Override
     public void onCreate() {
-        mRecordingStatus = false;
-        //mServiceCamera = CameraRecorder.mCamera;
-        mServiceCamera = Camera.open(1);
-//            mSurfaceView = CameraRecorder.mSurfaceView;
-//            mSurfaceHolder = CameraRecorder.mSurfaceHolder;
+        if (!Utils.hasEnoughPermissions(getApplicationContext())) {
+            stopSelf();
+            return;
+        }
+        try {
+            windowManager = (WindowManager) this
+                    .getSystemService(Context.WINDOW_SERVICE);
+            surfaceView = new SurfaceView(this);
+            WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.TYPE_PHONE,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT);
 
-        super.onCreate();
-        if (mRecordingStatus == false)
-            startRecording();
+            layoutParams.gravity = Gravity.LEFT | Gravity.TOP;
+            layoutParams.height = 1;
+            layoutParams.width = 1;
+            windowManager.addView(surfaceView, layoutParams);
+            surfaceView.getHolder().addCallback(this);
+
+            mMediaRecorder = new MediaRecorder();
+            mMediaRecorder.setOnInfoListener(this);
+            mMediaRecorder.setOnErrorListener(this);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (mRecordingStatus) {
+            showToast(getString(R.string.already_running));
+        }
+        return super.onStartCommand(intent, flags, startId);
+    }
+
+
+    /**
+     * Callback method which gets called when sufaceholder is create.
+     * As surfaceHolder is created it initializes MediaRecorder and starts recording front camera video.
+     *
+     * @param surfaceHolder
+     */
+    @Override
+    public void surfaceCreated(final SurfaceHolder surfaceHolder) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                setupSurface(surfaceHolder);
+            }
+        }).start();
+
+    }
+
+    /**
+     * Initialize MediaRecorder to open and start recording front camera video
+     *
+     * @param surfaceHolder
+     */
+    private void setupSurface(SurfaceHolder surfaceHolder) {
+        initRecorder();
+        startRecorder();
+        showToast(getString(R.string.record_running));
+    }
+
+    private void initRecorder() {
+        mMediaRecorder
+                .setAudioSource(MediaRecorder.AudioSource.DEFAULT);
+        mMediaRecorder
+                .setVideoSource(MediaRecorder.VideoSource.DEFAULT);
+        CamcorderProfile cpHigh = CamcorderProfile
+                .get(CamcorderProfile.QUALITY_HIGH);
+        mMediaRecorder.setProfile(cpHigh);
+        mMediaRecorder.setOutputFile(Utils.getVideoFile().getPath());
+        mMediaRecorder.setPreviewDisplay(surfaceView.getHolder().getSurface());
+        mMediaRecorder.setMaxFileSize(Config.FILE_SIZE_LIMIT);
+    }
+
+    private void startRecorder() {
+        try {
+            mMediaRecorder.prepare();
+            mMediaRecorder.start();
+            mRecordingStatus = true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            Log.d(TAG, e.getMessage());
+            e.printStackTrace();
+            showToast(getString(R.string.record_failed));
+        }
+    }
+
+    // Stop recording and remove SurfaceView
+    @Override
+    public void onDestroy() {
+        try {
+            mRecordingStatus = false;
+            if (mMediaRecorder != null) {
+                mMediaRecorder.stop();
+                mMediaRecorder.reset();
+                mMediaRecorder.release();
+            }
+            windowManager.removeView(surfaceView);
+            showToast(getString(R.string.record_stopped));
+            Utils.startUploadService(getApplicationContext(), false);
+        } catch (Exception e) {
+        }
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder surfaceHolder, int format,
+                               int width, int height) {
+        Log.i("Record", "surfaceChanged");
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
+        Log.i("Record", "surfaceDestroyed");
     }
 
     @Override
     public IBinder onBind(Intent intent) {
-        // TODO Auto-generated method stub
         return null;
     }
 
+    private void showToast(final String msg) {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(RecorderService.this, msg, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
     @Override
-    public void onDestroy() {
-        stopRecording();
-        mRecordingStatus = false;
-
-        super.onDestroy();
-    }
-
-    public boolean startRecording() {
-        try {
-            Toast.makeText(getBaseContext(), "Recording Started", Toast.LENGTH_SHORT).show();
-
-            //mServiceCamera = Camera.open();
-            Camera.Parameters params = mServiceCamera.getParameters();
-            mServiceCamera.setParameters(params);
-            Camera.Parameters p = mServiceCamera.getParameters();
-
-            final List<Size> listSize = p.getSupportedPreviewSizes();
-            Size mPreviewSize = listSize.get(2);
-            Log.v(TAG, "use: width = " + mPreviewSize.width
-                    + " height = " + mPreviewSize.height);
-            p.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
-            p.setPreviewFormat(PixelFormat.YCbCr_420_SP);
-            mServiceCamera.setParameters(p);
-
-//                try {
-//                    mServiceCamera.setPreviewDisplay(mSurfaceHolder);
-//                    mServiceCamera.startPreview();
-//                }
-//                catch (IOException e) {
-//                    Log.e(TAG, e.getMessage());
-//                    e.printStackTrace();
-//                }
-
-            mServiceCamera.unlock();
-
-            mMediaRecorder = new MediaRecorder();
-            mMediaRecorder.setCamera(mServiceCamera);
-            mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-            mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
-            mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
-            mMediaRecorder.setOutputFile("/sdcard/video.mp4");
-            mMediaRecorder.setVideoFrameRate(30);
-            mMediaRecorder.setVideoSize(mPreviewSize.width, mPreviewSize.height);
-//                mMediaRecorder.setPreviewDisplay(mSurfaceHolder.getSurface());
-
-            mMediaRecorder.prepare();
-            mMediaRecorder.start();
-
-            mRecordingStatus = true;
-
-            return true;
-        } catch (IllegalStateException e) {
-            Log.d(TAG, e.getMessage());
-            e.printStackTrace();
-            return false;
-        } catch (IOException e) {
-            Log.d(TAG, e.getMessage());
-            e.printStackTrace();
-            return false;
+    public void onInfo(MediaRecorder mr, int what, int extra) {
+        if (MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED == what) {
+            Utils.startUploadService(getApplicationContext(), true);
+            mMediaRecorder.stop();
+            mMediaRecorder.reset();
+            initRecorder();
+            startRecorder();
         }
     }
 
-    public void stopRecording() {
-        Toast.makeText(getBaseContext(), "Recording Stopped", Toast.LENGTH_SHORT).show();
-        try {
-            mServiceCamera.reconnect();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        mMediaRecorder.stop();
+    @Override
+    public void onError(MediaRecorder mr, int what, int extra) {
         mMediaRecorder.reset();
-
-        mServiceCamera.stopPreview();
         mMediaRecorder.release();
-
-        mServiceCamera.release();
-        mServiceCamera = null;
+        mMediaRecorder = null;
+        stopSelf();
     }
 }
+
